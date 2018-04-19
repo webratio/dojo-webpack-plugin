@@ -13,99 +13,107 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-const loaderUtils = require("loader-utils");
-module.exports = function(content) {
+const path = require("path");
+const i18nEval = require("../i18nEval");
+const {callSyncBail} = require("../../../lib/pluginCompat");
 
+module.exports = function(content) {
 	this.cacheable && this.cacheable();
 
 	// Returns the locales that are enabled in bundle which match the requested locale
-	// A locale matches the requested locale if it is the same, or less specific than
+	// A locale matches the requested locale if it is the same, or more/less specific than
 	// the requested locale.  For example if the requested locale is en-us, then bundle
-	// locales en and en-us match.
+	// locales en and en-us and en-us-xyz all match.
 	function getAvailableLocales(requestedLocale, bundle) {
+		if (!bundle.root || typeof bundle.root !== 'object') {
+			return [];
+		}
+		if (requestedLocale === "*") {
+			return Object.keys(bundle).filter(locale => {
+				return locale !== "root" && !!bundle[locale];
+			});
+		}
 		var result = [], parts = requestedLocale.split("-");
+		// Add root locales (less spcific) first
 		for (var current = "", i = 0; i < parts.length; i++) {
 			current += (current ? "-" : "") + parts[i];
 			if(bundle[current]){
 				result.push(current);
 			}
 		}
-		return result;
-	}
-
-	var bundle = (function() {
-		var result;
-		function define(arg1, arg2) {
-			if (!arg2) {
-				result = arg1;
-			} else {
-				if (arg1.length !== 0) {
-					throw new Error("define dependencies not supported in langauge files!");
-				}
-				result = arg2(); // call factory function
+		// Add locales with greater specificity
+		Object.keys(bundle).forEach(function(loc) {
+			if (bundle[loc] && loc.startsWith(requestedLocale + "-")) {
+				result.push(loc);
 			}
-		}
-		define.amd = true;
-		eval(content);
+		});
 		return result;
-	})();
+	}
 
+	var bundle = i18nEval(content);
+	const dojoRequire = callSyncBail(this._compiler, "get dojo require");
 	var absMid;
-	const query = this.query ? loaderUtils.parseQuery(this.query) : {};
-	// See if the normalized name was provided in the query string
-	if ("name" in query) {
-		absMid = query.name;
-	}
-	var res = this._module.request.replace(/\\/g, "/");
-	var segments = res.split("!");
-	if (segments) {
-		res = segments[segments.length-1];
-	}
-	if (!absMid && this._module.absMid) {
+	var res = this._module.request.replace(/\\/g, "/").split("!").pop();
+	if (this._module.absMid) {
 		// Fix up absMid to remove loader
-		segments = this._module.absMid.split("!");
-		if (segments) {
-			absMid = segments[segments.length-1];
+		absMid = this._module.absMid.split("!").pop();
+	}
+	if (!absMid && this._module.issuer.absMid) {
+		// Fix up absMid to remove loader
+		absMid = dojoRequire.toAbsMid(this._module.rawRequest.split("!").pop(), {mid:this._module.issuer.absMid});
+	}
+	if (!absMid) {
+		const rawRequest = this._module.rawRequest.split("!").pop();
+		if (!path.isAbsolute(rawRequest) && !rawRequest.startsWith('.')) {
+			absMid = rawRequest;
+		} else {
+			absMid = res;
 		}
 	}
-	this._module.absMid = "dojo/i18n!" + absMid;
+	this._module.absMid = this._module.absMid || "dojo/i18n!" + absMid;
 
 	// Determine if this is the default bundle or a locale specific bundle
 	const buf = [], regex = /^(.+)\/nls\/([^/]+)\/?(.*)$/;
 	const resMatch = regex.exec(res);
-	if (resMatch && absMid) {
-		var locale;
-		if (resMatch[3]) {
-			locale = resMatch[2];
-		}
-		if (!locale) {
-			// this is the default bundle.  Add any locale specific bundles that match the
-			// requested locale.  Default bundles specify available locales
-			const absMidMatch = regex.exec(absMid);
-			const normalizedPath = absMidMatch[1];
-			const normalizedFile = absMidMatch[2];
-			const requestedLocales = this._compilation.options.DojoAMDPlugin && this._compilation.options.DojoAMDPlugin.locales || [];
-			requestedLocales.forEach(function(requestedLocale) {
-				const availableLocales = getAvailableLocales(requestedLocale, bundle);
-				availableLocales.forEach((loc) => {
-					const name = normalizedPath + "/nls/" + loc + "/" + normalizedFile;
-					buf.push("require(\"" + name + "?absMid=" + name + "\");");
-				});
-			});
+	const pluginOptions = callSyncBail(this._compiler, "dojo-webpack-plugin-options");
+	const requestedLocales = pluginOptions.locales;
+	const bundledLocales = [];
 
-		}
+	if (!resMatch) {
+		throw new Error(`Unsupported resource path for dojo/i18n loader.  ${res} must be in an nls directory`);
+	}
+	var locale;
+	if (resMatch[3]) {
+		locale = resMatch[2];
+	}
+	if (!locale) {
+		// this is the default bundle.  Add any locale specific bundles that match the
+		// requested locale.  Default bundles specify available locales
+		let absMidMatch = regex.exec(absMid);
+		(requestedLocales || ["*"]).forEach(function(requestedLocale) {
+			const availableLocales = getAvailableLocales(requestedLocale, bundle);
+			availableLocales.forEach((loc) => {
+				const localeRes = `${resMatch[1]}/nls/${loc}/${resMatch[2]}`;
+				if (absMidMatch) {
+					var localeAbsMid = `${absMidMatch[1]}/nls/${loc}/${absMidMatch[2]}`;
+				}
+				bundledLocales.push(loc);
+				buf.push(`require("${localeRes}?absMid=${(localeAbsMid || localeRes)}");`);
+			});
+		});
+
 	}
 	const runner = require.resolve("./runner.js").replace(/\\/g, "/");
-	var issuerAbsMid;
-	if (this._module.issuer) {
-		issuerAbsMid = this._module.issuer.absMid;
-	}
-	if (!issuerAbsMid) {
-		issuerAbsMid = this._module.absMid || "";
-	}
+	const rootLocales = getAvailableLocales("*", bundle);
 
-	buf.push("require(\"" + absMid + "?absMid=" + absMid + "\");");
-	buf.push("module.exports = require(\"" + runner + "\")(\"" + absMid + "\");");
+	if (rootLocales.length !== bundledLocales.length) {
+		const locs = bundledLocales.toString().replace(/,/g,"|");
+		buf.push(`require("dojo/i18nRootModifier?absMid=${absMid}&bundledLocales=${locs}!${absMid}");`);
+	} else {
+		buf.push(`require("${res}?absMid=${absMid}");`);
+	}
+	buf.push(`var req = ${this._compilation.mainTemplate.requireFn}.${pluginOptions.requireFnPropName}.c();`);
+	buf.push(`module.exports = require("${runner}")("${absMid}", req);`);
 	return buf.join("\n");
 };
 
