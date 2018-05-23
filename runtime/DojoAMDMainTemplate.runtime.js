@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- /* globals loaderScope __webpack_require__ installedModules globalRequireContext */
+ /* globals module loaderScope __webpack_require__ installedModules globalRequireContext */
 
 module.exports = {
 	main: function() {
@@ -132,8 +132,10 @@ module.exports = {
 						errors.push({mid: mid, error: e});
 					}
 				});
-				if (callback && errors.length === 0) {
-					callback.apply(this, modules);
+				if (errors.length === 0) {
+					if (callback) {
+						callback.apply(this, modules);
+					}
 				} else {
 					var error = new Error("findModules");
 					error.src = "dojo-webpack-plugin";
