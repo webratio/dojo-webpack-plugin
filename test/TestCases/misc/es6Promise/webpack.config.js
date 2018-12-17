@@ -1,11 +1,18 @@
 var path = require("path");
 var DojoWebpackPlugin = require("../../../../index");
 module.exports = {
-	entry: './index.js?absMid=test/index',
+	entry: "test/index",
 	plugins: [
 		new DojoWebpackPlugin({
 			loaderConfig: {
-				paths:{test: "."}
+				paths:{
+					test: ".",
+					amd: "../../../../amd"
+				},
+				has: {
+					"host-browser": false,
+					"config-deferredInstrumentation": false
+				}
 			},
 			loader: path.join(__dirname, "../../../js/dojo/dojo.js")
 		})

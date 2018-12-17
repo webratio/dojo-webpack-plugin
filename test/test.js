@@ -93,7 +93,7 @@ function runTestCases(casesName) {
 							}
 							options.plugins.push(new MainTemplatePlugin());
 							if (parseInt(require("webpack/package.json").version.split(".")[0]) >= 4) {
-								options.mode = "development";
+								options.mode = options.mode || "development";
 								options.devtool = false;
 							}
 						});
@@ -138,7 +138,11 @@ function runTestCases(casesName) {
 									filesCount++;
 									var context = vm.createContext({
 										console: console,
-										process: process
+										process: process,
+										setTimeout: setTimeout,
+										setInterval: setInterval,
+										clearTimeout: clearTimeout,
+										clearInterval: clearInterval
 									});
 									context.global = context;
 									context.it = _it;

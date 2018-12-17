@@ -53,7 +53,7 @@
 
 # Introduction
 
-**dojo-webpack-plugin** is a [Webpack](https://webpack.github.io/) plugin that supports using Webpack to build Dojo 1.x applications that use Asyncronous Module Definition (AMD).  This version supports Webpack 2 and greater (Webpack 4 must be 4.2.0 or greater), and Dojo versions 1.10 through 1.13.  Features include:
+**dojo-webpack-plugin** is a [Webpack](https://webpack.github.io/) plugin that supports using Webpack to build Dojo 1.x applications that use Asyncronous Module Definition (AMD).  This version supports Webpack 2 and greater (Webpack 4 must be 4.2.0 or greater), and Dojo versions 1.10 through 1.14.  Features include:
 
 * Support for Dojo loader config properties, including `baseUrl`, `paths`, `packages`, `map` and `aliases`
 * Support for client-side synchronous and asynchronous `require()` calls for packed modules.
@@ -393,7 +393,7 @@ https://openntf.github.io/dojo-webpack-plugin-sample/test.html.
 
 # Release Notes
 
-The versions of Dojo listed below require version 2.1.0 or later of this plugin to work correctly.  Attempting to use earlier versions of this plugin with the listed versions of Dojo will result in the error "Dojo require not yet initialized" when building.  The newer versions of this plugin should contine to work with older patch releases of the listed versions of Dojo.
+The versions of Dojo listed below require version 2.1.0 or later of this plugin to work correctly.  Attempting to use earlier versions of this plugin with the listed versions of Dojo will result in the error "Dojo require not yet initialized" when building.  The newer versions of this plugin should continue to work with older patch releases of the listed versions of Dojo.
 
 * 1.13.0 and later
 * 1.12.3 and later
@@ -404,7 +404,7 @@ In addition, Dojo loaders built with earlier versions of the plugin will not wor
 
 # Footnotes
 
-<a name="foot1">1.</a>&nbsp; Embedded loader sizes are determined using a stand-alone embedded loader that has been uglified and gzipped.  The loader was produced as described in [Building the Dojo loader](#building-the-dojo-loader), with [the Dojo config API excluded](#the-dojo-config-api-feature) and using the 2.2.2 version of this plugin and the 1.14 (not yet released at the time of this writing) Dojo loader, both of which support the new [`foreign-loader`](https://github.com/dojo/dojo/pull/279) has.js feature conditional.  Embedded loader sizes for earlier versions vary depending on the version of this plugin and of Dojo, up to a max of about 4KB when the Dojo config API is included.
+<a name="foot1">1.</a>&nbsp; Embedded loader sizes are determined using a stand-alone embedded loader that has been uglified and gzipped.  The loader was produced as described in [Building the Dojo loader](#building-the-dojo-loader), with [the Dojo config API excluded](#the-dojo-config-api-feature) and using the 2.2.2 version of this plugin and the 1.14 Dojo loader, both of which support the new [`foreign-loader`](https://github.com/dojo/dojo/pull/279) has.js feature conditional.  Embedded loader sizes for earlier versions vary depending on the version of this plugin and of Dojo, up to a max of about 4KB when the Dojo config API is included.
 
 [npm]: https://img.shields.io/npm/v/dojo-webpack-plugin.svg
 [npm-url]: https://npmjs.com/package/dojo-webpack-plugin
