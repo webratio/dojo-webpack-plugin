@@ -1,4 +1,5 @@
 /*
+ * (C) Copyright HCL Technologies Ltd. 2019
  * (C) Copyright IBM Corp. 2017 All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,12 +37,33 @@
 ) {
 	"use strict";
 
-	var Promise, freezeObject = Object.freeze || function(){};
+	var Promise;
 
 	function wrap(dojoPromise) {
 		return new Promise(dojoPromise);
 	}
 
+	/*
+	 * Dojo promises can resolve synchronously but ES6 promises
+	 * always resolve asynchronously.  Wrapping the callbacks
+	 * with this function ensures that the ES6 behavior is
+	 * adhered to.
+	 */
+	function newAsyncCallback(cb) {
+		if (typeof cb !== 'function') return cb;
+		return function() {
+			var args = arguments;
+			var dfd = new Deferred();
+			setTimeout(function() {
+				try {
+					dfd.resolve(cb.apply(null, args));
+				} catch (err) {
+					dfd.reject(err);
+				}
+			}, 0);
+			return dfd.promise;
+		};
+	}
 	Promise = lang.extend(function PromiseWrapper(executor) {
 		if (executor instanceof DojoPromise) {
 			// wrapping an existing Dojo promise
@@ -55,20 +77,33 @@
 				function (reason) { dfd.reject(reason, false); }
 			);
 		}
-		freezeObject(this);
 	}, {
 		'catch': function(onRejected) {
-			return wrap(this.promise.otherwise(onRejected));
+			return wrap(this.promise.otherwise(
+				newAsyncCallback(onRejected)
+			));
 		},
 		then: function(onFullfilled, onRejected) {
-			return wrap(this.promise.then(onFullfilled, onRejected));
+			return wrap(this.promise.then(
+				newAsyncCallback(onFullfilled),
+				newAsyncCallback(onRejected)
+			));
+		},
+		finally: function(onSettled) {
+			return wrap(this.promise.always(
+				newAsyncCallback(onSettled)
+			));
 		}
 	});
 	Promise.all = function(iterable) {
-		return wrap(all(array.map(iterable, function(wrapped) {return wrapped.promise;})));
+		return wrap(all(array.map(iterable, function(wrapped) {
+			return wrapped instanceof Promise ? wrapped.promise : wrapped;
+		})));
 	};
 	Promise.race = function(iterable) {
-		return wrap(first(array.map(iterable, function(wrapped) {return wrapped.promise;})));
+		return wrap(first(array.map(iterable, function(wrapped) {
+			return wrapped instanceof Promise ? wrapped.promise : wrapped;
+		})));
 	};
 	Promise.reject = function(reason) {
 		return wrap((new Deferred()).reject(reason));
